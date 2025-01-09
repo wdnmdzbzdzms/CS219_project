@@ -1,21 +1,31 @@
+//edit by: zhd
 #include <ncurses.h>
 #include <string>
 #include <vector>
 #include <stack>
+#include <algorithm>
+#include <unistd.h> 
 
 using namespace std;
 
 // Global Variables
-vector<string> fileContent; // Store file content line by line
-int cursorX = 0, cursorY = 0; // Cursor position
-string mode = "NORMAL";      // Current mode (NORMAL, INSERT, COMMAND)
-stack<vector<string>> undoStack; // Undo stack
-stack<vector<string>> redoStack; // Redo stack
-int scrollOffset = 0;         // Scroll offset for handling large files
-string clipboard;             // Clipboard for copy and paste
-vector<string> openFiles;     // List of open files
-int currentFileIndex = 0;     // Index of the current file
-vector<vector<string>> allFileContents; // Store content for all open files
+struct EditorState {
+    vector<string> content; // File content
+    int cursorX, cursorY;   // Cursor position
+    int scrollOffset;       // Scroll offset
+};
+
+vector<string> fileContent;               // Store file content line by line
+int cursorX = 0, cursorY = 0;             // Cursor position
+string mode = "NORMAL";                   // Current mode (NORMAL, INSERT, COMMAND)
+stack<EditorState> undoStack;             // Undo stack
+stack<EditorState> redoStack;             // Redo stack
+int scrollOffset = 0;                     // Scroll offset for handling large files
+string clipboard;                         // Clipboard for copy and paste
+vector<string> openFiles;                 // List of open files
+int currentFileIndex = 0;                 // Index of the current file
+vector<vector<string>> allFileContents;   // Store content for all open files
+const int MAX_HISTORY = 100;              // Limit undo/redo stack size
 
 // Function Prototypes
 void initializeScreen();
@@ -33,14 +43,28 @@ void enableColors();
 void searchAndReplace(const string &toFind, const string &toReplace);
 void jumpToLine(int lineNumber);
 void switchFile(int fileIndex);
+void pushToStack(stack<EditorState>& stack, const EditorState& state);
 
-int main() {
+int main(int argc, char *argv[]) {
     initializeScreen();
     enableColors();
 
-    // Initialize open files
-    openFiles.push_back("output.txt"); // Default file
-    allFileContents.push_back(fileContent); // Save content for the first file
+    // Command-line argument handling for file opening
+    if (argc > 1) {
+        string initialFile = argv[1];
+        openFiles.push_back(initialFile); // Add file to the open files list
+        allFileContents.push_back({}); // Initialize content for the file
+        currentFileIndex = openFiles.size() - 1;
+        fileContent = allFileContents[currentFileIndex];
+        loadFile(initialFile);  // Load the file specified on command line
+    } else {
+        // If no file is specified, open the default output.txt
+        openFiles.push_back("output.txt");
+        allFileContents.push_back({});
+        currentFileIndex = openFiles.size() - 1;
+        fileContent = allFileContents[currentFileIndex];
+        loadFile("output.txt");
+    }
 
     // Main loop
     while (true) {
@@ -85,101 +109,132 @@ void cleanupScreen() {
     endwin();
 }
 
+// Push to stack with size limit
+void pushToStack(stack<EditorState>& stack, const EditorState& state) {
+    if (stack.size() >= MAX_HISTORY) {
+        std::stack<EditorState> temp;
+        while (stack.size() > 1) {
+            temp.push(stack.top());
+            stack.pop();
+        }
+        stack.pop(); // Remove the oldest state
+        while (!temp.empty()) {
+            stack.push(temp.top());
+            temp.pop();
+        }
+    }
+    stack.push(state);
+}
+
 // Handle NORMAL mode
 void handleNormalMode() {
     int ch = getch();
-    switch (ch) {
-        case 'h': // Move left
-        case KEY_LEFT:
-            if (cursorX > 0) cursorX--;
-            break;
-        case 'l': // Move right
-        case KEY_RIGHT:
-            if (cursorX < fileContent[cursorY].length()) cursorX++;
-            break;
-        case 'j': // Move down
-        case KEY_DOWN:
-            if (cursorY < fileContent.size() - 1) {
-                cursorY++;
-                if (cursorY >= scrollOffset + (LINES - 2)) scrollOffset++;
-                cursorX = min(cursorX, (int)fileContent[cursorY].length());
-            }
-            break;
-        case 'k': // Move up
-        case KEY_UP:
-            if (cursorY > 0) {
-                cursorY--;
-                if (cursorY < scrollOffset) scrollOffset--;
-                cursorX = min(cursorX, (int)fileContent[cursorY].length());
-            }
-            break;
-        case '0': // Move to the beginning of the current line
-            cursorX = 0;
-            break;
-        case '$': // Move to the end of the current line
-            cursorX = fileContent[cursorY].length();
-            break;
-        case 'g': { // gg: Move to the first line
-            int nextChar = getch();
-            if (nextChar == 'g') {
-                cursorY = 0;
+    if (fileContent.empty()) {
+        switch (ch) {
+            case 'i':
+                mode = "INSERT";
+                break;
+            case ':':
+                mode = "COMMAND";
+                break;
+        }
+    }else{
+        switch (ch) {
+            case 'h': case KEY_LEFT:
+                if (cursorX > 0) cursorX--;
+                break;
+            case 'l': case KEY_RIGHT:
+                if (cursorX < fileContent[cursorY].length()) cursorX++;
+                break;
+            case 'j': case KEY_DOWN:
+                if (cursorY < fileContent.size() - 1) {
+                    cursorY++;
+                    if (cursorY >= scrollOffset + (LINES - 2)) scrollOffset++;
+                    cursorX = min(cursorX, (int)fileContent[cursorY].length());
+                }
+                break;
+            case 'k': case KEY_UP:
+                if (cursorY > 0) {
+                    cursorY--;
+                    if (cursorY < scrollOffset) scrollOffset--;
+                    cursorX = min(cursorX, (int)fileContent[cursorY].length());
+                }
+                break;
+            case '0':
                 cursorX = 0;
-                scrollOffset = 0;
+                break;
+            case '$':
+                cursorX = fileContent[cursorY].length();
+                break;
+            case 'g': {
+                int nextChar = getch();
+                if (nextChar == 'g') {
+                    cursorY = 0;
+                    cursorX = 0;
+                    scrollOffset = 0;
+                }
+                break;
             }
-            break;
-        }
-        case 'G': // Move to the last line
-            cursorY = fileContent.size() - 1;
-            cursorX = 0;
-            if (cursorY >= scrollOffset + (LINES - 2)) {
-                scrollOffset = max(0, (int)fileContent.size() - (LINES - 2));
+            case 'G':
+                cursorY = fileContent.size() - 1;
+                cursorX = 0;
+                if (cursorY >= scrollOffset + (LINES - 2)) {
+                    scrollOffset = max(0, (int)fileContent.size() - (LINES - 2));
+                }
+                break;
+            case 'd': {
+                int nextChar = getch();
+                if (nextChar == 'd') {
+                    pushToStack(undoStack, {fileContent, cursorX, cursorY, scrollOffset});
+                    redoStack = stack<EditorState>();
+                    fileContent.erase(fileContent.begin() + cursorY);
+                    if (cursorY >= fileContent.size()) cursorY = fileContent.size() - 1;
+                }
+                break;
             }
-            break;
-        case 'd': { // dd: Delete current line
-            int nextChar = getch();
-            if (nextChar == 'd') {
-                undoStack.push(fileContent); // Save state for undo
-                redoStack = stack<vector<string>>(); // Clear redo stack
-                fileContent.erase(fileContent.begin() + cursorY);
-                if (cursorY >= fileContent.size()) cursorY = fileContent.size() - 1;
+            case 'y': {
+                int nextChar = getch();
+                if (nextChar == 'y') {
+                    clipboard = fileContent[cursorY];
+                }
+                break;
             }
-            break;
-        }
-        case 'y': { // yy: Copy current line
-            int nextChar = getch();
-            if (nextChar == 'y') {
-                clipboard = fileContent[cursorY];
+            case 'p': {
+                pushToStack(undoStack, {fileContent, cursorX, cursorY, scrollOffset});
+                redoStack = stack<EditorState>();
+                fileContent.insert(fileContent.begin() + cursorY + 1, clipboard);
+                cursorY++;
+                cursorX = 0;
+                break;
             }
-            break;
+            case 'i':
+                mode = "INSERT";
+                break;
+            case ':':
+                mode = "COMMAND";
+                break;
+            case 'u':
+                undo();
+                break;
+            case 'r': // Redo
+                redo();
+                break;
+            case 18: // Ctrl+R for redo
+                redo();
+                break;
         }
-        case 'p': { // p: Paste copied line below the cursor
-            undoStack.push(fileContent); // Save state for undo
-            redoStack = stack<vector<string>>(); // Clear redo stack
-            fileContent.insert(fileContent.begin() + cursorY + 1, clipboard);
-            cursorY++;
-            break;
-        }
-        case 'i': // Switch to INSERT mode
-            mode = "INSERT";
-            break;
-        case ':': // Switch to COMMAND mode
-            mode = "COMMAND";
-            break;
-        case 'u': // Undo
-            undo();
-            break;
-        case 'r': // Redo
-            redo();
-            break;
-        case 'q': // Quit the editor
-            cleanupScreen();
-            exit(0);
     }
 }
 
+
+
 // Handle INSERT mode
 void handleInsertMode() {
-    undoStack.push(fileContent); // Save state for undo
+    pushToStack(undoStack, {fileContent, cursorX, cursorY, scrollOffset}); // Save state for undo
+    redoStack = stack<EditorState>(); // Clear redo stack
+    if (fileContent.empty()) {
+        fileContent.push_back(""); // Add an empty line to start with
+    }
     while (true) {
         int ch = getch();
         switch (ch) {
@@ -204,6 +259,30 @@ void handleInsertMode() {
                     fileContent.erase(fileContent.begin() + cursorY);
                     cursorY--;
                     if (cursorY < scrollOffset) scrollOffset--;
+                }
+                break;
+              case KEY_LEFT: // Left arrow key
+                if (cursorX > 0) {
+                    cursorX--;
+                }
+                break;
+            case KEY_RIGHT: // Right arrow key
+                if (cursorX < fileContent[cursorY].length()) {
+                    cursorX++;
+                }
+                break;
+            case KEY_UP: // Up arrow key
+                if (cursorY > 0) {
+                    cursorY--;
+                    if (cursorX > fileContent[cursorY].length()) cursorX = fileContent[cursorY].length(); // Adjust cursorX if necessary
+                    if (cursorY < scrollOffset) scrollOffset--; // Scroll up if necessary
+                }
+                break;
+            case KEY_DOWN: // Down arrow key
+                if (cursorY < fileContent.size() - 1) {
+                    cursorY++;
+                    if (cursorX > fileContent[cursorY].length()) cursorX = fileContent[cursorY].length(); // Adjust cursorX if necessary
+                    if (cursorY >= scrollOffset + (LINES - 2)) scrollOffset++; // Scroll down if necessary
                 }
                 break;
             default: // Insert characters
@@ -247,8 +326,8 @@ void handleCommandMode() {
         size_t secondSlash = cmd.find("/", firstSlash + 1);
         string toFind = cmd.substr(2, firstSlash - 2);
         string toReplace = cmd.substr(firstSlash + 1, secondSlash - firstSlash - 1);
-        undoStack.push(fileContent); // Save state for undo before search and replace
-        redoStack = stack<vector<string>>(); // Clear redo stack
+        pushToStack(undoStack, {fileContent, cursorX, cursorY, scrollOffset}); // Save state for undo before search and replace
+        redoStack = stack<EditorState>();  // Correctly reinitialize redoStack// Clear redo stack
         searchAndReplace(toFind, toReplace);
     } else if (cmd.rfind("line ", 0) == 0) { // Jump to line
         int lineNumber = stoi(cmd.substr(5));
@@ -304,16 +383,27 @@ void saveFile(const string &filename) {
     getch();
 }
 
-// Load file from disk
+// Load file from disk or create a new file if it doesn't exist
 void loadFile(const string &filename) {
     FILE *file = fopen(filename.c_str(), "r");
     if (!file) {
-        mvprintw(LINES - 1, 0, "Error: Cannot open file %s", filename.c_str());
+        mvprintw(LINES - 1, 0, "File does not exist. Creating a new file: %s", filename.c_str());
         clrtoeol();
-        getch();
+        getch(); // Wait for key press
+
+        // Initialize the file content as empty
+        fileContent.clear();
+        allFileContents[currentFileIndex] = fileContent; // Save the content in the global store
+
+        cursorX = 0;
+        cursorY = 0;
+        scrollOffset = 0;
+        while (!undoStack.empty()) undoStack.pop();
+        while (!redoStack.empty()) redoStack.pop();
         return;
     }
 
+    // Read existing file content
     fileContent.clear();
     char buffer[1024];
     while (fgets(buffer, sizeof(buffer), file)) {
@@ -333,8 +423,11 @@ void loadFile(const string &filename) {
 
     mvprintw(LINES - 1, 0, "File loaded: %s", filename.c_str());
     clrtoeol();
-    getch();
+    getch(); // Wait for key press
+    while (!undoStack.empty()) undoStack.pop();
+    while (!redoStack.empty()) redoStack.pop();
 }
+
 
 // Search and replace in file
 void searchAndReplace(const string &toFind, const string &toReplace) {
@@ -370,28 +463,51 @@ void switchFile(int fileIndex) {
         cursorY = 0;
         scrollOffset = 0;
     }
+    while (!undoStack.empty()) undoStack.pop();
+    while (!redoStack.empty()) redoStack.pop();
 }
 
-// Undo the last operation
+// Undo operation
 void undo() {
     if (!undoStack.empty()) {
-        redoStack.push(fileContent); // Save current state for redo
-        fileContent = undoStack.top();
+        // 保存当前状态到 redoStack
+        pushToStack(redoStack, {fileContent, cursorX, cursorY, scrollOffset});
+        
+        // 弹出 undoStack 中的一个状态，并恢复
+        EditorState state = undoStack.top();
         undoStack.pop();
-        cursorX = 0;
-        cursorY = 0;
-        scrollOffset = 0;
+        
+        // 恢复到 undo 状态
+        fileContent = state.content;
+        cursorX = state.cursorX;
+        cursorY = state.cursorY;
+        scrollOffset = state.scrollOffset;
+        
+    } else {
+        mvprintw(LINES - 1, 0, "Nothing to undo!");
+        clrtoeol();
+        getch();
     }
 }
 
-// Redo the last undone operation
+// Redo operation
 void redo() {
     if (!redoStack.empty()) {
-        undoStack.push(fileContent); // Save current state for undo
-        fileContent = redoStack.top();
+        // 保存当前状态到 undoStack
+        pushToStack(undoStack, {fileContent, cursorX, cursorY, scrollOffset});
+        
+        // 弹出 redoStack 中的一个状态，并恢复
+        EditorState state = redoStack.top();
         redoStack.pop();
-        cursorX = 0;
-        cursorY = 0;
-        scrollOffset = 0;
+        
+        // 恢复到 redo 状态
+        fileContent = state.content;
+        cursorX = state.cursorX;
+        cursorY = state.cursorY;
+        scrollOffset = state.scrollOffset;
+    } else {
+        mvprintw(LINES - 1, 0, "Nothing to redo!");
+        clrtoeol();
+        getch();
     }
 }
