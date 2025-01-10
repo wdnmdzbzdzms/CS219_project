@@ -1,0 +1,3 @@
+Welcome to Mini Vim!
+Thiass is a test line.
+34es4rdr5df5tf65tf
