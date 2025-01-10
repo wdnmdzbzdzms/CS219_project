@@ -4,7 +4,7 @@
 sudo apt install screenkey
 ```
 
-We use `screenkey` tool to show our key operations in realtime.
+We use `screenkey` tool to show our key operations in real-time.
 
 Some functions are **not** convenient to show in the report, but we will show them in the **presentation**.
 
@@ -14,17 +14,17 @@ Some functions are **not** convenient to show in the report, but we will show th
 
 type `./vim` in terminal to execute the program in default situation.
 
-<img src=".assets\image-20250110155122557.png" alt="image-20250110155122557" style="zoom:67%;" />
+<img src="https://s2.loli.net/2025/01/10/DveXNlbp5kzC9Ay.png" alt="image-20250110222912543"  />
 
 Because no file is specified to be opened, `output.txt` is created by default.
 
-<img src=".assets\image-20250110165510218.png" alt="image-20250110165510218" style="zoom:67%;" />
+![image-20250110222955018](https://s2.loli.net/2025/01/10/qrgFXGSRVtOWQP3.png)
 
 
 
 If you open a specific file, such as `o.txt`, you will directly enter `Normal mode`. And the cursor is at the beginning of the line
 
-<img src=".assets\image-20250110170102509.png" alt="image-20250110170102509" style="zoom:67%;" />
+![image-20250110223018998](https://s2.loli.net/2025/01/10/zAiZXhbT3c2trkj.png)
 
 
 
@@ -32,25 +32,25 @@ If you open a specific file, such as `o.txt`, you will directly enter `Normal mo
 
 `$ `**for line  end**
 
-<img src=".assets\image-20250110170349631.png" alt="image-20250110170349631" style="zoom:67%;" />
+![image-20250110223029757](https://s2.loli.net/2025/01/10/LCEeM9A5UBy6b1Y.png)
 
 `0 ` **for line start**
 
-<img src=".assets\image-20250110170445623.png" alt="image-20250110170445623" style="zoom:67%;" />
+![image-20250110223050301](https://s2.loli.net/2025/01/10/hjsQntmqz7aYVZU.png)
 
 \-`gg` and `G` for **first and last line navigation**
 
 Use the arrow keys to move the cursor to the middle of the paragraph.
 
-<img src=".assets\image-20250110170644836.png" alt="image-20250110170644836" style="zoom:67%;" />
+![image-20250110223100664](https://s2.loli.net/2025/01/10/GmTdX7P8BfJpR2j.png)
 
 `gg`
 
-<img src=".assets\image-20250110170723942.png" alt="image-20250110170723942" style="zoom:67%;" />
+![image-20250110223110964](https://s2.loli.net/2025/01/10/IRNxtlDQqUBPkLp.png)
 
 `G`
 
-<img src=".assets\image-20250110170754935.png" alt="image-20250110170754935" style="zoom:67%;" />
+![image-20250110223138870](https://s2.loli.net/2025/01/10/y6fTtWQbrJGSFsX.png)
 
 #####  **Basic Editing**:
 
@@ -58,42 +58,47 @@ Use the arrow keys to move the cursor to the middle of the paragraph.
 
 delete the third line
 
-<img src=".assets\image-20250110170913838.png" alt="image-20250110170913838" style="zoom:67%;" />
+![image-20250110223151601](https://s2.loli.net/2025/01/10/bWUZj2hxnoq57KG.png)
 
-<img src=".assets\image-20250110171018484.png" alt="image-20250110171018484" style="zoom:67%;" />
+![image-20250110223159626](https://s2.loli.net/2025/01/10/YOoEPLZbeWM2qSC.png)
 
 **`yy` Copy current line and `p `Paste copied line**
 
 Copy the second line and paste. The picture shows the third line becomes `222`.Move the cursor to the beginning of the third line
 
-<img src=".assets\image-20250110171108180.png" alt="image-20250110171108180" style="zoom:67%;" />
+![image-20250110223210317](https://s2.loli.net/2025/01/10/ySHsqL9AEx2oTw3.png)
 
-<img src=".assets\image-20250110171137188.png" alt="image-20250110171137188" style="zoom:67%;" />
+![image-20250110223223245](https://s2.loli.net/2025/01/10/xDB7j1JC594nsKa.png)
 
 #### 2. **Insert Mode and Command Line Mode**
 
 Type `i` to Insert mode. The text color becomes **green**.
 
-<img src=".assets\image-20250110171626308.png" alt="image-20250110171626308" style="zoom:67%;" />
+![image-20250110223238105](https://s2.loli.net/2025/01/10/rBWwFkOMp2T8od9.png)
 
 **Real-time cursor updates during typing**
 
 Type :`this is a test line` in 4th line.
 
-<img src=".assets\image-20250110172604189.png" alt="image-20250110172604189" style="zoom:67%;" />
+![image-20250110223248905](https://s2.loli.net/2025/01/10/BzSLqMtAKuw9Yhn.png)
 
 **Cursor Movement with Typed Text**
 
 Ability to change cursor position directly using arrow keys
 
-<img src=".assets\image-20250110172729009.png" alt="image-20250110172729009" style="zoom:67%;" />
+![image-20250110223258090](https://s2.loli.net/2025/01/10/sL5JXHBnt3Q9U4b.png)
 
 Press `ESC` to exit insert mode. Use `:wq` to save directly to exit program `minivim`
 
-<img src=".assets\image-20250110173130111.png" alt="image-20250110173130111" style="zoom:67%;" />
+![image-20250110223346473](https://s2.loli.net/2025/01/10/DeLmCo7adZRIkqn.png)
 
 Open `o.txt` and find that the text has been completely saved
 
 
 
-<img src=".assets\image-20250110173234022.png" alt="image-20250110173234022" style="zoom:67%;" />
+![image-20250110223359126](https://s2.loli.net/2025/01/10/qSVmtpwGTWCf6xn.png)
+
+
+
+
+
